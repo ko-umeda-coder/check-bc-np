@@ -79,7 +79,7 @@
     background: #f2f2f2;
   }
 
-  /* 特殊な背景と文字装飾 */
+  /* 色表示用 */
   .gray-cell {
     background-color: #e0e0e0;
   }
@@ -152,6 +152,7 @@ let allData = [];
 let currentPage = 1;
 const rowsPerPage = 5;
 
+/* 検索 */
 async function searchData() {
   const month = document.getElementById("targetMonth").value;
   const orderNo = document.getElementById("orderNo").value.trim();
@@ -162,8 +163,9 @@ async function searchData() {
   const response = await fetch("https://raw.githubusercontent.com/ko-umeda-coder/check-bc-np/main/daigaihana_data.json");
   const json = await response.json();
 
+  // データフィルタ
   allData = json.filter(d =>
-    (!month || d["対象年月"] === month) &&
+    (!month || d["対象年月"] === month || d["????"] === month) &&
     (!orderNo || (d["受注番号"] || "").includes(orderNo)) &&
     (!groom || (d["新郎"] || "").includes(groom)) &&
     (!bride || (d["新婦"] || "").includes(bride)) &&
@@ -174,6 +176,7 @@ async function searchData() {
   displayData();
 }
 
+/* 表示 */
 function displayData() {
   const tbody = document.querySelector("#resultTable tbody");
   tbody.innerHTML = "";
@@ -188,7 +191,6 @@ function displayData() {
 
     const tr = document.createElement("tr");
 
-    // セルごとに色をつける
     const tdBack = document.createElement("td");
     tdBack.textContent = backColor;
     if (backColor === "対象外") tdBack.classList.add("gray-cell");
@@ -213,6 +215,7 @@ function displayData() {
   renderPagination();
 }
 
+/* ページ切り替え */
 function renderPagination() {
   const totalPages = Math.ceil(allData.length / rowsPerPage);
   const container = document.getElementById("pagination");
@@ -230,15 +233,35 @@ function renderPagination() {
   }
 }
 
-/* 月リスト */
-(function(){
+/* ✅ 月リストをJSONから自動生成 */
+(async function(){
   const select = document.getElementById("targetMonth");
-  const months = ["2025年3月","2025年4月","2025年5月","2025年6月","2025年7月","2025年8月","2025年9月","2025年10月","2025年11月"];
-  for (const m of months) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    select.appendChild(opt);
+  try {
+    const response = await fetch("https://raw.githubusercontent.com/ko-umeda-coder/check-bc-np/main/daigaihana_data.json");
+    const data = await response.json();
+
+    // 対象年月 or "????" カラムを抽出して重複排除
+    const months = [...new Set(data.map(d => d["対象年月"] || d["????"]))];
+
+    // 数値ソート（例：2025年3月→2025年9月）
+    months.sort((a, b) => {
+      const aNum = parseInt(a.replace(/[^0-9]/g, ""));
+      const bNum = parseInt(b.replace(/[^0-9]/g, ""));
+      return aNum - bNum;
+    });
+
+    // セレクトへ追加
+    months.forEach(m => {
+      if (m) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        select.appendChild(opt);
+      }
+    });
+
+  } catch (err) {
+    console.error("月リストの取得に失敗:", err);
   }
 })();
 </script>
