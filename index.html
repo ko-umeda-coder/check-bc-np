@@ -20,8 +20,11 @@
 <body>
   <h2>問い合わせ状況検索</h2>
 
-  <label>対象年月：</label>
-  <select id="monthSelect"></select><br>
+  <label>対象年月（必須）：</label>
+  <select id="monthSelect">
+    <option value="">-- 選択してください --</option>
+  </select><br>
+
   <label>受注番号：</label><input id="orderNo" type="text"><br>
   <label>挙式日：</label><input id="date" type="text"><br>
   <label>新郎姓：</label><input id="groom" type="text"><br>
@@ -34,6 +37,7 @@
     let allResults = [];
     let currentPage = 1;
 
+    // 起動時にシート名を取得
     google.script.run.withSuccessHandler(setMonths).getSheetNames();
 
     function setMonths(months) {
@@ -47,13 +51,20 @@
     }
 
     function search() {
+      const targetMonth = document.getElementById('monthSelect').value;
+      if (!targetMonth) {
+        alert('対象年月を選択してください。');
+        return;
+      }
+
       const params = {
-        targetMonth: document.getElementById('monthSelect').value,
-        orderNo: document.getElementById('orderNo').value,
-        date: document.getElementById('date').value,
-        groom: document.getElementById('groom').value,
-        bride: document.getElementById('bride').value
+        targetMonth: targetMonth,
+        orderNo: document.getElementById('orderNo').value.trim(),
+        date: document.getElementById('date').value.trim(),
+        groom: document.getElementById('groom').value.trim(),
+        bride: document.getElementById('bride').value.trim()
       };
+
       google.script.run.withSuccessHandler(showResults).searchData(params);
     }
 
@@ -68,16 +79,24 @@
       const start = (currentPage - 1) * pageSize;
       const pageData = allResults.slice(start, start + pageSize);
 
+      if (pageData.length === 0) {
+        document.getElementById('result').innerHTML = "<p>該当するデータはありません。</p>";
+        return;
+      }
+
       let html = `<table><tr><th>受注番号</th><th>挙式日</th><th>新郎</th><th>新婦</th><th>バックカラー</th><th>ネームプレート</th></tr>`;
       pageData.forEach(r => {
         html += `<tr>
-          <td>${r.orderNo}</td><td>${r.date}</td><td>${r.groom}</td><td>${r.bride}</td>
-          <td>${r.bk}</td><td>${r.plateStatus}</td>
+          <td>${r.orderNo}</td>
+          <td>${r.date}</td>
+          <td>${r.groom}</td>
+          <td>${r.bride}</td>
+          <td>${r.bk}</td>
+          <td>${r.plateStatus}</td>
         </tr>`;
       });
       html += `</table>`;
 
-      // ページネーション
       const totalPages = Math.ceil(allResults.length / pageSize);
       if (totalPages > 1) {
         html += `<div class="pagination">`;
@@ -87,7 +106,7 @@
         html += `</div>`;
       }
 
-      document.getElementById('result').innerHTML = html || "<p>該当するデータはありません。</p>";
+      document.getElementById('result').innerHTML = html;
     }
 
     function goPage(p) {
