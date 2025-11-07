@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>問い合わせ状況検索</title>
+  <style>
+    body { font-family: "メイリオ", sans-serif; font-size: 18px; background: #f9f9f9; color: #222; padding: 20px; }
+    select, input { font-size: 18px; padding: 8px; margin: 5px 0; width: 100%; max-width: 300px; }
+    button { font-size: 20px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #45a049; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 18px; }
+    th { background: #eee; }
+    tr:nth-child(even) { background: #f2f2f2; }
+    .pagination { margin-top: 20px; text-align: center; }
+    .page-btn { font-size: 18px; padding: 8px 12px; margin: 0 4px; border: 1px solid #aaa; background: #fff; cursor: pointer; }
+    .page-btn.active { background: #4CAF50; color: white; }
+  </style>
+</head>
+<body>
+  <h2>問い合わせ状況検索</h2>
+
+  <label>対象年月：</label>
+  <select id="monthSelect"></select><br>
+  <label>受注番号：</label><input id="orderNo" type="text"><br>
+  <label>挙式日：</label><input id="date" type="text"><br>
+  <label>新郎姓：</label><input id="groom" type="text"><br>
+  <label>新婦姓：</label><input id="bride" type="text"><br>
+  <button onclick="search()">検索</button>
+
+  <div id="result"></div>
+
+  <script>
+    let allResults = [];
+    let currentPage = 1;
+
+    google.script.run.withSuccessHandler(setMonths).getSheetNames();
+
+    function setMonths(months) {
+      const sel = document.getElementById('monthSelect');
+      months.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        sel.appendChild(opt);
+      });
+    }
+
+    function search() {
+      const params = {
+        targetMonth: document.getElementById('monthSelect').value,
+        orderNo: document.getElementById('orderNo').value,
+        date: document.getElementById('date').value,
+        groom: document.getElementById('groom').value,
+        bride: document.getElementById('bride').value
+      };
+      google.script.run.withSuccessHandler(showResults).searchData(params);
+    }
+
+    function showResults(results) {
+      allResults = results;
+      currentPage = 1;
+      renderPage();
+    }
+
+    function renderPage() {
+      const pageSize = 5;
+      const start = (currentPage - 1) * pageSize;
+      const pageData = allResults.slice(start, start + pageSize);
+
+      let html = `<table><tr><th>受注番号</th><th>挙式日</th><th>新郎</th><th>新婦</th><th>バックカラー</th><th>ネームプレート</th></tr>`;
+      pageData.forEach(r => {
+        html += `<tr>
+          <td>${r.orderNo}</td><td>${r.date}</td><td>${r.groom}</td><td>${r.bride}</td>
+          <td>${r.bk}</td><td>${r.plateStatus}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+
+      // ページネーション
+      const totalPages = Math.ceil(allResults.length / pageSize);
+      if (totalPages > 1) {
+        html += `<div class="pagination">`;
+        for (let i = 1; i <= totalPages; i++) {
+          html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+        }
+        html += `</div>`;
+      }
+
+      document.getElementById('result').innerHTML = html || "<p>該当するデータはありません。</p>";
+    }
+
+    function goPage(p) {
+      currentPage = p;
+      renderPage();
+    }
+  </script>
+</body>
+</html>
