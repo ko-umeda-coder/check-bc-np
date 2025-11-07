@@ -1,182 +1,112 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>問い合わせ状況検索</title>
 <style>
-  :root{ --fg:#222; --bg:#fafafa; --muted:#666; --brand:#2e7d32; --border:#dcdcdc; }
-  body{ font-family:"メイリオ","Hiragino Kaku Gothic ProN",sans-serif; background:var(--bg); color:var(--fg); margin:0; }
-  .wrap{ max-width:960px; margin:0 auto; padding:24px; }
-  h1{ font-size:28px; margin:0 0 16px; }
-  .row{ display:flex; gap:12px; align-items:center; margin:10px 0; flex-wrap:wrap; }
-  .row label{ min-width:140px; font-size:18px; }
-  .row input,.row select{ font-size:18px; padding:10px; border:1px solid var(--border); border-radius:8px; flex:1; min-width:240px; }
-  .btn{ font-size:20px; padding:12px 24px; border:none; border-radius:10px; background:var(--brand); color:#fff; cursor:pointer; }
-  .btn:disabled{ background:#9e9e9e; cursor:not-allowed; }
-  .note{ color:#c62828; margin:8px 0 0; min-height:1.4em; }
-  table{ width:100%; border-collapse:collapse; margin-top:18px; background:#fff; }
-  th,td{ border:1px solid var(--border); padding:12px; font-size:18px; text-align:left; }
-  th{ background:#f2f2f2; }
-  tr:nth-child(even){ background:#fcfcfc; }
-  .pagination{ margin-top:14px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
-  .page-btn{ font-size:18px; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; }
-  .page-btn.active{ background:var(--brand); color:#fff; border-color:var(--brand); }
-  .sr-only{ position:absolute; left:-10000px; }
+  body { font-family: "Noto Sans JP", sans-serif; margin: 30px; background: #fdfdfd; }
+  h1 { font-size: 1.8em; margin-bottom: 20px; }
+  label { display: inline-block; width: 130px; font-weight: bold; }
+  select, input { padding: 8px; margin: 5px 0; width: 200px; }
+  button { background: #2b8a3e; color: white; padding: 8px 20px; border: none; border-radius: 5px; cursor: pointer; }
+  button:hover { background: #256f34; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+  th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+  th { background: #f4f4f4; }
+
+  /* 状態別スタイル */
+  .cell-gray { background: #f0f0f0; color: #777; }
+  .cell-normal { background: white; color: #333; }
+  .cell-resolved { background: #e6ffe6; font-weight: bold; }
+
+  .error { color: red; margin-top: 10px; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>問い合わせ状況検索</h1>
+<h1>問い合わせ状況検索</h1>
 
-  <div class="row">
-    <label for="monthSelect">対象年月（必須）：</label>
-    <select id="monthSelect" aria-required="true">
-      <option value="">-- 選択してください --</option>
-    </select>
-  </div>
+<label>対象年月（必須）:</label>
+<select id="month"></select><br>
+<label>受注番号:</label><input id="orderNo" type="text"><br>
+<label>挙式日:</label><input id="wedding" type="text" placeholder="例）9月12日"><br>
+<label>新郎姓:</label><input id="groom" type="text" placeholder="例）山田"><br>
+<label>新婦姓:</label><input id="bride" type="text" placeholder="例）佐藤"><br>
 
-  <div class="row">
-    <label for="orderNo">受注番号：</label>
-    <input id="orderNo" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="例）67890">
-  </div>
+<button onclick="search()">検索</button>
+<p id="error" class="error"></p>
 
-  <div class="row">
-    <label for="wedDate">挙式日：</label>
-    <input id="wedDate" type="text" placeholder="例）9月12日">
-  </div>
-
-  <div class="row">
-    <label for="groom">新郎姓：</label>
-    <input id="groom" type="text" placeholder="例）山田">
-  </div>
-
-  <div class="row">
-    <label for="bride">新婦姓：</label>
-    <input id="bride" type="text" placeholder="例）佐藤">
-  </div>
-
-  <div class="row">
-    <button id="searchBtn" class="btn">検索</button>
-    <div id="msg" class="note" role="status" aria-live="polite"></div>
-  </div>
-
-  <div id="result"></div>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>受注番号</th><th>挙式日</th><th>新郎</th><th>新婦</th><th>バックカラー</th><th>ネームプレート</th>
+    </tr>
+  </thead>
+  <tbody id="result-body"></tbody>
+</table>
 
 <script>
-  // ★あなたのJSON公開先（GitHub Pages）
-  const BASE_URL = "https://ko-umeda-coder.github.io/check-bc-np";
+async function loadMonths() {
+  const res = await fetch("https://ko-umeda-coder.github.io/check-bc-np/months.json?" + Date.now());
+  const months = await res.json();
+  const select = document.getElementById("month");
+  select.innerHTML = '<option value="">-- 選択してください --</option>';
+  months.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m; opt.textContent = m;
+    select.appendChild(opt);
+  });
+}
 
-  const monthSelect = document.getElementById('monthSelect');
-  const msg = document.getElementById('msg');
-  const resultDiv = document.getElementById('result');
-  const pageSize = 5;
-  let all = [];     // 現在の月の全データ
-  let view = [];    // 条件に合うデータ
-  let page = 1;
+async function search() {
+  const month = document.getElementById("month").value;
+  const orderNo = document.getElementById("orderNo").value.trim();
+  const groom = document.getElementById("groom").value.trim();
+  const bride = document.getElementById("bride").value.trim();
+  const error = document.getElementById("error");
+  error.textContent = "";
 
-  // 月一覧のロード
-  async function loadMonths(){
-    try{
-      const res = await fetch(`${BASE_URL}/months.json?t=${Date.now()}`);
-      if(!res.ok) throw new Error('months.jsonの取得に失敗');
-      const months = await res.json();
-      monthSelect.innerHTML = '<option value="">-- 選択してください --</option>';
-      months.forEach(m=>{
-        const opt=document.createElement('option');
-        opt.value=m; opt.textContent=m;
-        monthSelect.appendChild(opt);
-      });
-    }catch(e){
-      msg.textContent = '対象年月の取得に失敗しました。時間をおいて再度お試しください。';
-      console.error(e);
-    }
+  if (!month) { error.textContent = "対象年月を選択してください。"; return; }
+
+  const url = `https://ko-umeda-coder.github.io/check-bc-np/${month}.json?${Date.now()}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const results = data.filter(r =>
+    (!orderNo || r["受注番号"].includes(orderNo)) &&
+    (!groom || r["新郎"].includes(groom)) &&
+    (!bride || r["新婦"].includes(bride))
+  );
+  renderResults(results);
+}
+
+function renderResults(results) {
+  const tbody = document.getElementById("result-body");
+  tbody.innerHTML = "";
+  if (results.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6">該当データがありません。</td></tr>';
+    return;
   }
 
-  // 月データ取得
-  async function loadMonthData(monthJa){
-    const m = monthJa.match(/^(\d{4})年(\d{1,2})月$/);
-    const y = m[1], mm = ('0'+m[2]).slice(-2);
-    const url = `${BASE_URL}/${y}-${mm}.json?t=${Date.now()}`;
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('月データの取得に失敗');
-    return await res.json();
-  }
+  results.forEach(r => {
+    const tr = document.createElement("tr");
+    ["受注番号", "挙式日", "新郎", "新婦", "BK", "ネームプレート"].forEach(key => {
+      const td = document.createElement("td");
+      const val = r[key] || "";
 
-  // 検索
-  async function onSearch(){
-    const month = monthSelect.value;
-    if(!month){ msg.textContent='対象年月を選択してください。'; return; }
-    msg.textContent='';
+      if (val === "対象外") td.classList.add("cell-gray");
+      else if (val.includes("問い合わせ中")) td.classList.add("cell-normal");
+      else td.classList.add("cell-resolved");
 
-    try{
-      if(!all.length || all[0]?.['対象年月'] !== month){
-        all = await loadMonthData(month);
-      }
-      const orderNo = document.getElementById('orderNo').value.trim();
-      const wedDate = document.getElementById('wedDate').value.trim();
-      const groom   = document.getElementById('groom').value.trim();
-      const bride   = document.getElementById('bride').value.trim();
-
-      view = all.filter(r =>
-        (!orderNo || String(r['受注番号']||'').includes(orderNo)) &&
-        (!wedDate || String(r['挙式日']||'').includes(wedDate))   &&
-        (!groom   || String(r['新郎']||'').includes(groom))       &&
-        (!bride   || String(r['新婦']||'').includes(bride))
-      );
-
-      page = 1;
-      render();
-    }catch(e){
-      msg.textContent = '検索時にエラーが発生しました。';
-      console.error(e);
-    }
-  }
-
-  // 描画
-  function render(){
-    if(view.length === 0){
-      resultDiv.innerHTML = '<p>該当データがありません。</p>';
-      return;
-    }
-    const start = (page-1)*pageSize;
-    const slice = view.slice(start, start+pageSize);
-
-    let html = '<table><thead><tr>'+
-      '<th>受注番号</th><th>挙式日</th><th>新郎</th><th>新婦</th><th>バックカラー</th><th>ネームプレート</th>'+
-      '</tr></thead><tbody>';
-
-    slice.forEach(r=>{
-      const bk = r['BK'] || '問い合わせ中';
-      const plate = r['ネームプレート'] || '問い合わせ中です。';
-      html += `<tr>
-        <td>${safe(r['受注番号'])}</td>
-        <td>${safe(r['挙式日'])}</td>
-        <td>${safe(r['新郎'])}</td>
-        <td>${safe(r['新婦'])}</td>
-        <td>${safe(bk)}</td>
-        <td>${safe(plate)}</td>
-      </tr>`;
+      td.textContent = val;
+      tr.appendChild(td);
     });
-    html += '</tbody></table>';
+    tbody.appendChild(tr);
+  });
+}
 
-    // ページネーション
-    const totalPages = Math.ceil(view.length/pageSize);
-    if(totalPages>1){
-      html += '<div class="pagination">';
-      for(let i=1;i<=totalPages;i++){
-        html += `<button class="page-btn ${i===page?'active':''}" onclick="go(${i})" aria-label="ページ ${i}">${i}</button>`;
-      }
-      html += '</div>';
-    }
-    resultDiv.innerHTML = html;
-  }
-  function go(p){ page=p; render(); }
-  function safe(s){ return (s==null)?'':String(s); }
-
-  document.getElementById('searchBtn').addEventListener('click', onSearch);
-  window.addEventListener('DOMContentLoaded', loadMonths);
+loadMonths();
 </script>
 </body>
 </html>
