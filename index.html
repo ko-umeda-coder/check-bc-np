@@ -64,10 +64,10 @@
   }
   th { background-color: #f3f3f3; }
 
-  /* 色分け */
-  .status-gray { background-color: #e0e0e0; color: #555; }
-  .status-green { background-color: #d4edda; font-weight: bold; color: #155724; }
-  .status-inquiry { background-color: #fff3cd; }
+  /* セルごとの色分け */
+  .cell-gray { background-color: #e0e0e0; color: #555; }
+  .cell-green { background-color: #d4edda; font-weight: bold; color: #155724; }
+  .cell-yellow { background-color: #fff3cd; }
 
   /* ページネーション */
   .pagination {
@@ -158,13 +158,12 @@
   </div>
 
 <script>
+const JSON_URL = "https://ko-umeda-coder.github.io/check-bc-np/daigaihana_data.json";
+const MONTHS_URL = "https://ko-umeda-coder.github.io/check-bc-np/months.json";
+
 let allData = [];
 let currentPage = 1;
 const rowsPerPage = 5;
-
-// JSONファイルのURL（自動更新済みGitHub Pages上）
-const JSON_URL = "https://ko-umeda-coder.github.io/check-bc-np/daigaihana_data.json";
-const MONTHS_URL = "https://ko-umeda-coder.github.io/check-bc-np/months.json";
 
 // 初期化
 document.addEventListener("DOMContentLoaded", async () => {
@@ -196,26 +195,37 @@ document.getElementById("searchForm").addEventListener("submit", async e => {
   renderPage();
 });
 
+// ページ描画
 function renderPage() {
   const tbody = document.querySelector("#resultTable tbody");
   tbody.innerHTML = "";
+
   const start = (currentPage - 1) * rowsPerPage;
   const end = Math.min(start + rowsPerPage, allData.length);
   const pageData = allData.slice(start, end);
 
   pageData.forEach(r => {
     const tr = document.createElement("tr");
-    if (r["BK"] === "対象外") tr.classList.add("status-gray");
-    else if (r["BK"] === "問い合わせ中") tr.classList.add("status-inquiry");
-    else tr.classList.add("status-green");
+
+    // セル単位で色付け
+    const bkClass = r["BK"] === "対象外"
+      ? "cell-gray"
+      : r["BK"] === "問い合わせ中"
+        ? "cell-yellow"
+        : "cell-green";
+
+    const npClass =
+      r["ネームプレート"].includes("対象外") ? "cell-gray" :
+      r["ネームプレート"].includes("問い合わせ中") ? "cell-yellow" :
+      r["ネームプレート"].includes("手配") ? "cell-green" : "";
 
     tr.innerHTML = `
       <td>${r["受注番号"]}</td>
       <td>${r["挙式日"]}</td>
       <td>${r["新郎"]}</td>
       <td>${r["新婦"]}</td>
-      <td>${r["BK"]}</td>
-      <td>${r["ネームプレート"]}</td>
+      <td class="${bkClass}">${r["BK"]}</td>
+      <td class="${npClass}">${r["ネームプレート"]}</td>
     `;
     tbody.appendChild(tr);
   });
